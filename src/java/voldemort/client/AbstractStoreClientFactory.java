@@ -17,14 +17,19 @@
 package voldemort.client;
 
 import java.io.StringReader;
+import java.lang.management.ManagementFactory;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
 
 import org.apache.log4j.Logger;
 
@@ -98,6 +103,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private final ClientConfig config;
     private final RoutedStoreFactory routedStoreFactory;
     private final int clientZoneId;
+    private final List<ObjectName> registeredBeans;
 
     public AbstractStoreClientFactory(ClientConfig config) {
         this.config = config;
@@ -115,15 +121,19 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         this.routedStoreFactory = new RoutedStoreFactory(config.isPipelineRoutedStoreEnabled(),
                                                          threadPool,
                                                          config.getRoutingTimeout(TimeUnit.MILLISECONDS));
+        this.registeredBeans = new ArrayList<ObjectName>();
 
         if(this.isJmxEnabled) {
-            JmxUtils.registerMbean(threadPool,
-                                   JmxUtils.createObjectName(JmxUtils.getPackageName(threadPool.getClass()),
-                                                             JmxUtils.getClassName(threadPool.getClass())
-                                                                     + jmxId()));
-            JmxUtils.registerMbean(new StoreStatsJmx(stats),
-                                   JmxUtils.createObjectName("voldemort.store.stats.aggregate",
-                                                             "aggregate-perf" + jmxId()));
+            ObjectName name = JmxUtils.createObjectName(
+                    JmxUtils.getPackageName(threadPool.getClass()),
+                    JmxUtils.getClassName(threadPool.getClass()) + jmxId());
+            JmxUtils.registerMbean(threadPool, name);
+            this.registeredBeans.add(name);
+            ObjectName aggpref = JmxUtils.createObjectName(
+                    "voldemort.store.stats.aggregate", "aggregate-perf"
+                            + jmxId());
+            JmxUtils.registerMbean(new StoreStatsJmx(stats), aggpref);
+            this.registeredBeans.add(aggpref);
         }
     }
 
@@ -385,6 +395,12 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     }
 
     public void close() {
+        if (this.isJmxEnabled) {
+            MBeanServer server = ManagementFactory.getPlatformMBeanServer();
+            for (ObjectName name : registeredBeans) {
+                JmxUtils.unregisterMbean(server, name);
+            }
+        }
         this.threadPool.shutdown();
 
         try {
