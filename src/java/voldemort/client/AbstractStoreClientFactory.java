@@ -231,9 +231,13 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         if(isJmxEnabled) {
             StatTrackingStore statStore = new StatTrackingStore(store, this.stats);
             store = statStore;
-            JmxUtils.registerMbean(new StoreStatsJmx(statStore.getStats()),
-                                   JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
-                                                             store.getName() + jmxId()));
+            ObjectName name =
+                JmxUtils.createObjectName(JmxUtils.getPackageName(store.getClass()),
+                    store.getName() + jmxId());
+            JmxUtils.registerMbean(
+                    new StoreStatsJmx(statStore.getStats()), name);
+            registeredBeans.add(name);
+
         }
 
         if(storeDef.getKeySerializer().hasCompression()
@@ -400,6 +404,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
             for (ObjectName name : registeredBeans) {
                 JmxUtils.unregisterMbean(server, name);
             }
+            registeredBeans.clear();
         }
         this.threadPool.shutdown();
 
