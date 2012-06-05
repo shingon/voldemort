@@ -20,7 +20,6 @@ import java.io.StringReader;
 import java.lang.management.ManagementFactory;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -103,7 +102,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
     private final ClientConfig config;
     private final RoutedStoreFactory routedStoreFactory;
     private final int clientZoneId;
-    private final List<ObjectName> registeredBeans;
+    private final Set<ObjectName> registeredBeans;
 
     public AbstractStoreClientFactory(ClientConfig config) {
         this.config = config;
@@ -121,7 +120,7 @@ public abstract class AbstractStoreClientFactory implements StoreClientFactory {
         this.routedStoreFactory = new RoutedStoreFactory(config.isPipelineRoutedStoreEnabled(),
                                                          threadPool,
                                                          config.getRoutingTimeout(TimeUnit.MILLISECONDS));
-        this.registeredBeans = new ArrayList<ObjectName>();
+        this.registeredBeans = Collections.synchronizedSet(new HashSet<ObjectName>());
 
         if(this.isJmxEnabled) {
             ObjectName name = JmxUtils.createObjectName(
