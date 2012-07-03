@@ -24,6 +24,8 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
+import javax.management.ObjectName;
+
 import voldemort.VoldemortException;
 import voldemort.client.protocol.RequestFormatType;
 import voldemort.cluster.Node;
@@ -69,11 +71,13 @@ public class SocketStoreClientFactory extends AbstractStoreClientFactory {
                                                           config.getSocketBufferSize(),
                                                           config.getSocketKeepAlive(),
                                                           config.isJmxEnabled());
-        if(config.isJmxEnabled())
-            JmxUtils.registerMbean(storeFactory,
-                                   JmxUtils.createObjectName(JmxUtils.getPackageName(storeFactory.getClass()),
-                                                             JmxUtils.getClassName(storeFactory.getClass())
-                                                                     + jmxId()));
+        if(config.isJmxEnabled()) {
+            ObjectName name = JmxUtils.createObjectName(JmxUtils.getPackageName(storeFactory.getClass()),
+                                                        JmxUtils.getClassName(storeFactory.getClass())
+                                                                + jmxId());
+            JmxUtils.registerMbean(storeFactory, name);
+            registeredBeans.add(name);
+        }
     }
 
     @Override
